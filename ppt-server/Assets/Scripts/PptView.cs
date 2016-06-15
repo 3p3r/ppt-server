@@ -1,5 +1,6 @@
-﻿using System.Diagnostics;
-using UnityEngine;
+﻿using System.Drawing.Imaging;
+using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System;
 
@@ -10,7 +11,7 @@ public class PptView : IDisposable
     /// </summary>
     public static string RootPath
     {
-        get { return Path.Combine(Application.streamingAssetsPath, "pptview"); }
+        get { return Path.Combine(UnityEngine.Application.streamingAssetsPath, "pptview"); }
     }
 
     /// <summary>
@@ -30,6 +31,11 @@ public class PptView : IDisposable
     /// pptview.exe's process which is rendering the current presentation
     /// </summary>
     public readonly Process RendererProcess;
+
+    /// <summary>
+    /// HWND to pptview.exe's render window
+    /// </summary>
+    public IntPtr RenderWindowHwnd { get; private set; }
 
     public PptView(string presentation_path, uint start_slide = 1)
     {
@@ -56,8 +62,63 @@ public class PptView : IDisposable
         };
 
         RendererProcess.Start();
+        RendererProcess.WaitForInputIdle();
 
         Disposed = false;
+    }
+
+    private bool GetRenderWindowHandle()
+    {
+        RenderWindowHwnd = IntPtr.Zero;
+
+        User32.EnumWindows((hwnd, lParam) =>
+        {
+            uint pid;
+            User32.GetWindowThreadProcessId(hwnd, out pid);
+
+            const int nChars = 1024;
+            var Buff2 = new System.Text.StringBuilder(nChars);
+            if (User32.GetClassName(hwnd, Buff2, nChars) > 0 &&
+                Buff2.ToString() == "screenClass")
+            {
+                if (RendererProcess.Id == pid)
+                    RenderWindowHwnd = hwnd;
+            }
+
+            return true;
+        },
+        0);
+
+        return RenderWindowHwnd != IntPtr.Zero;
+    }
+
+    public byte[] GetScreenshot()
+    {
+        byte[] pixels = new byte[0];
+
+        if (RenderWindowHwnd == IntPtr.Zero &&
+            !GetRenderWindowHandle())
+            return pixels;
+
+        RECT rc;
+        User32.GetWindowRect(RenderWindowHwnd, out rc);
+
+        using (Bitmap bmp = new Bitmap(rc.Width, rc.Height, PixelFormat.Format32bppArgb))
+        using (Graphics gfxBmp = Graphics.FromImage(bmp))
+        {
+            IntPtr hdcBitmap = gfxBmp.GetHdc();
+            User32.PrintWindow(RenderWindowHwnd, hdcBitmap, 0);
+            gfxBmp.ReleaseHdc(hdcBitmap);
+
+            using (MemoryStream stream = new MemoryStream())
+            {
+                bmp.Save(stream, ImageFormat.Jpeg);
+                stream.Close();
+                pixels = stream.ToArray();
+            }
+        }
+
+        return pixels;
     }
 
     #region IDisposable Support
