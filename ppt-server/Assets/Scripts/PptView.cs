@@ -39,7 +39,7 @@ public class PptView : IDisposable
         if (!Directory.Exists(RootPath))
             throw new InvalidOperationException("root path does not exist.");
 
-        if (!Directory.Exists(BinaryPath))
+        if (!File.Exists(BinaryPath))
             throw new InvalidOperationException("binary path does not exist.");
 
         PresentationPath = presentation_path;
@@ -49,10 +49,13 @@ public class PptView : IDisposable
             StartInfo = new ProcessStartInfo
             {
                 UseShellExecute = false,
-                Arguments = string.Format("/SN{0} \"{1}\"", start_slide, presentation_path),
+                Arguments = string.Format("/FSN{0} \"{1}\"", start_slide, presentation_path),
                 FileName = BinaryPath
-            }
+            },
+            EnableRaisingEvents = true
         };
+
+        RendererProcess.Start();
 
         Disposed = false;
     }
@@ -67,7 +70,10 @@ public class PptView : IDisposable
             if (disposing)
             {
                 if (RendererProcess != null)
+                {
+                    RendererProcess.CloseMainWindow();
                     RendererProcess.Dispose();
+                }
             }
 
             Disposed = true;
