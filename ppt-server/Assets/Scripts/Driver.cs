@@ -13,16 +13,19 @@ public class Driver : MonoBehaviour
         string path = Path.Combine(PptView.RootPath, "test.pptx");
         pptView = new PptView(path);
 
-        pptTexture = new Texture2D(3840, 2160);
+        pptTexture = new Texture2D(Screen.width, Screen.height, TextureFormat.ARGB32, false);
         pptTexHost.texture = pptTexture;
-	}
+
+        if (!Application.runInBackground)
+            Application.runInBackground = true;
+    }
 	
 	void Update ()
     {
-        byte[] pixels = pptView.GetScreenshot();
-        
-        if (pixels.Length > 0)
-            pptTexture.LoadImage(pixels);
+        pptView.Render(ref pptTexture);
+
+        if (Input.GetMouseButton(0))
+            Debug.LogFormat("Slide #: {0}", pptView.SlideNumber);
     }
 
     void OnDestroy()
