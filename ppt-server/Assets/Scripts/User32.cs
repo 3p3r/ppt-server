@@ -58,19 +58,24 @@ public static class User32
     public delegate bool EnumWindowsCallback(IntPtr hwnd, int lParam);
 
     [DllImport(DllName)]
+    [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
+    public enum PrintWindowFlags : uint
+    {
+        PW_ALL          = 0x00000000,
+        PW_CLIENTONLY   = 0x00000001
+    }
+
     [DllImport(DllName)]
-    public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, int nFlags);
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, PrintWindowFlags nFlags);
 
     [DllImport(DllName)]
     public static extern int EnumWindows(EnumWindowsCallback cb, int lPar);
 
     [DllImport(DllName)]
     public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-
-    [DllImport(DllName)]
-    public static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder text, int count);
 
     [DllImport(DllName, SetLastError = true, CharSet = CharSet.Auto)]
     public static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
