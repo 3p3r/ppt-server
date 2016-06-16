@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System;
+using System.Runtime.InteropServices;
 
 public class PptView : IDisposable
 {
@@ -67,8 +68,19 @@ public class PptView : IDisposable
         Disposed = false;
     }
 
+    public uint SlideNumber
+    {
+        get
+        {
+            int[] offsets = { 0x004FBADC, 0x730, 0x730, 0x7D0, 0x6E8, 0x218 };
+            return (uint)X86MultiPointerReader.Resolve(RendererProcess, offsets).ToInt32();
+        }
+    }
+
     private bool GetRenderWindowHandle()
     {
+        const string class_name = "screenClass";
+
         RenderWindowHwnd = IntPtr.Zero;
 
         User32.EnumWindows((hwnd, lParam) =>
@@ -79,10 +91,10 @@ public class PptView : IDisposable
             const int nChars = 1024;
             var Buff2 = new System.Text.StringBuilder(nChars);
             if (User32.GetClassName(hwnd, Buff2, nChars) > 0 &&
-                Buff2.ToString() == "screenClass")
+                Buff2.ToString().Equals(class_name) &&
+                RendererProcess.Id == pid)
             {
-                if (RendererProcess.Id == pid)
-                    RenderWindowHwnd = hwnd;
+                RenderWindowHwnd = hwnd;
             }
 
             return true;
@@ -92,33 +104,48 @@ public class PptView : IDisposable
         return RenderWindowHwnd != IntPtr.Zero;
     }
 
-    public byte[] GetScreenshot()
+    public void Render(ref UnityEngine.Texture2D texture)
     {
-        byte[] pixels = new byte[0];
-
         if (RenderWindowHwnd == IntPtr.Zero &&
             !GetRenderWindowHandle())
-            return pixels;
+            return;
+
+        if (!texture)
+            return;
 
         RECT rc;
         User32.GetWindowRect(RenderWindowHwnd, out rc);
 
-        using (Bitmap bmp = new Bitmap(rc.Width, rc.Height, PixelFormat.Format32bppArgb))
-        using (Graphics gfxBmp = Graphics.FromImage(bmp))
-        {
-            IntPtr hdcBitmap = gfxBmp.GetHdc();
-            User32.PrintWindow(RenderWindowHwnd, hdcBitmap, 0);
-            gfxBmp.ReleaseHdc(hdcBitmap);
+        if (texture.width != rc.Width ||
+            texture.height != rc.Height)
+            texture.Resize(rc.Width, rc.Height, UnityEngine.TextureFormat.ARGB32, false);
 
-            using (MemoryStream stream = new MemoryStream())
+        using (Bitmap bmp = new Bitmap(rc.Width, rc.Height, PixelFormat.Format32bppArgb))
+        using (Graphics gfx = Graphics.FromImage(bmp))
+        {
+            IntPtr hdc = gfx.GetHdc();
+
+            if (User32.PrintWindow(RenderWindowHwnd, hdc, User32.PrintWindowFlags.PW_ALL))
             {
-                bmp.Save(stream, ImageFormat.Jpeg);
-                stream.Close();
-                pixels = stream.ToArray();
+                gfx.ReleaseHdc(hdc);
+                Rectangle rect = new Rectangle(0, 0, bmp.Width, bmp.Height);
+                BitmapData data = bmp.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+
+                int length = data.Stride * data.Height;
+
+                byte[] bytes = new byte[length];
+                Marshal.Copy(data.Scan0, bytes, 0, length);
+
+                texture.LoadRawTextureData(bytes);
+                texture.Apply();
+
+                bmp.UnlockBits(data);
+            }
+            else
+            {
+                gfx.ReleaseHdc(hdc);
             }
         }
-
-        return pixels;
     }
 
     #region IDisposable Support
