@@ -72,9 +72,21 @@ public class PptView : IDisposable
     {
         get
         {
-            int[] offsets = { 0x004F8204, 0, 0xE8, 0x84, 0, 0xD4 };
+            int[] offsets = { 0x004F8434, 0x24, 0x40, 0x10, 0xC, 0xD4 };
             return (uint)X86MultiPointerReader.Resolve(RendererProcess, offsets).ToInt32();
         }
+    }
+
+    public void NextStep()
+    {
+        // 1775 is the wParam sniffed with Spy++
+        User32.SendMessage(RenderWindowHwnd, User32.WindowMessages.WM_COMMAND, (IntPtr)1775, IntPtr.Zero);
+    }
+
+    public void PreviousStep()
+    {
+        // 1774 is the wParam sniffed with Spy++
+        User32.SendMessage(RenderWindowHwnd, User32.WindowMessages.WM_COMMAND, (IntPtr)1774, IntPtr.Zero);
     }
 
     private bool GetRenderWindowHandle()

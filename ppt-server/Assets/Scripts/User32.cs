@@ -79,4 +79,12 @@ public static class User32
 
     [DllImport(DllName, SetLastError = true, CharSet = CharSet.Auto)]
     public static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+
+    public enum WindowMessages : uint
+    {
+        WM_COMMAND = 0x0111
+    }
+
+    [DllImport(DllName)]
+    public static extern int SendMessage(IntPtr hWnd, WindowMessages uMsg, IntPtr wParam, IntPtr lParam);
 }

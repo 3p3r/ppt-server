@@ -26,6 +26,11 @@ public class Driver : MonoBehaviour
 
         if (Input.GetMouseButton(0))
             Debug.LogFormat("Slide #: {0}", pptView.SlideNumber);
+
+        if (Input.GetKeyDown(KeyCode.RightArrow))
+            pptView.NextStep();
+        else if (Input.GetKeyDown(KeyCode.LeftArrow))
+            pptView.PreviousStep();
     }
 
     void OnDestroy()
