@@ -79,14 +79,33 @@ public class PptView : IDisposable
 
     public void NextStep()
     {
+        ActivateWindow();
         // 1775 is the wParam sniffed with Spy++
         User32.SendMessage(RenderWindowHwnd, User32.WindowMessages.WM_COMMAND, (IntPtr)1775, IntPtr.Zero);
     }
 
     public void PreviousStep()
     {
+        ActivateWindow();
         // 1774 is the wParam sniffed with Spy++
         User32.SendMessage(RenderWindowHwnd, User32.WindowMessages.WM_COMMAND, (IntPtr)1774, IntPtr.Zero);
+    }
+
+    public void ActivateWindow()
+    {
+        if (User32.GetForegroundWindow() !=
+            RenderWindowHwnd)
+        {
+            User32.SwitchToThisWindow(RenderWindowHwnd, true);
+            User32.SetForegroundWindow(RenderWindowHwnd);
+            User32.SetWindowPos(
+                RenderWindowHwnd,
+                User32.HWND_TOPMOST,
+                0, 0, 0, 0,
+                User32.SetWindowPosFlags.SWP_NOSIZE |
+                User32.SetWindowPosFlags.SWP_NOMOVE |
+                User32.SetWindowPosFlags.SWP_SHOWWINDOW);
+        }
     }
 
     private bool GetRenderWindowHandle()
