@@ -4,14 +4,14 @@ using UnityEngine.UI;
 
 public class BasicRender : MonoBehaviour
 {
-    PptView pptView;
-    public Texture2D pptTexture;
-    public RawImage pptTexHost;
+    Helios.PptView      pptView;
+    public Texture2D    pptTexture;
+    public RawImage     pptTexHost;
 
 	void Start ()
     {
-        string path = Path.Combine(PptView.RootPath, "test.pptx");
-        pptView = new PptView(path);
+        string path = Path.Combine(Helios.PptView.RootPath, "test.pptx");
+        pptView = new Helios.PptView(path);
 
         pptTexture = new Texture2D(Screen.width, Screen.height, TextureFormat.ARGB32, false);
         pptTexHost.texture = pptTexture;
