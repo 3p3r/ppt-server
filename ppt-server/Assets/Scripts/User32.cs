@@ -82,9 +82,40 @@ public static class User32
 
     public enum WindowMessages : uint
     {
-        WM_COMMAND = 0x0111
+        WM_COMMAND = 0x0111,
+        WM_IME_NOTIFY = 0x0282
     }
 
     [DllImport(DllName)]
     public static extern int SendMessage(IntPtr hWnd, WindowMessages uMsg, IntPtr wParam, IntPtr lParam);
+
+    /// <see cref="https://msdn.microsoft.com/en-us/library/windows/desktop/ms633545(v=vs.85).aspx"/>
+    [Flags]
+    public enum SetWindowPosFlags : uint
+    {
+        SWP_NOMOVE = 0x0002,
+        SWP_NOSIZE = 0x0001,
+        SWP_SHOWWINDOW = 0x0040
+    }
+
+    /// <see cref="https://msdn.microsoft.com/en-us/library/windows/desktop/ms633545(v=vs.85).aspx"/>
+    [DllImport(DllName, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, SetWindowPosFlags uFlags);
+
+    /// <see cref="https://msdn.microsoft.com/en-us/library/windows/desktop/ms633545(v=vs.85).aspx"/>
+    public static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+
+    /// <see cref="https://msdn.microsoft.com/en-us/library/windows/desktop/ms633539(v=vs.85).aspx"/>
+    [DllImport(DllName)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetForegroundWindow(System.IntPtr hWnd);
+
+    /// <see cref="https://msdn.microsoft.com/en-us/library/windows/desktop/ms633505(v=vs.85).aspx"/>
+    [DllImport(DllName)]
+    public static extern System.IntPtr GetForegroundWindow();
+
+    /// <see cref="https://msdn.microsoft.com/en-us/library/windows/desktop/ms633553(v=vs.85).aspx"/>
+    [DllImport(DllName, SetLastError = true)]
+    public static extern void SwitchToThisWindow(IntPtr hWnd, bool fAltTab);
 }
