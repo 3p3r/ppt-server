@@ -2,7 +2,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-public class Driver : MonoBehaviour
+public class BasicRender : MonoBehaviour
 {
     PptView pptView;
     public Texture2D pptTexture;
