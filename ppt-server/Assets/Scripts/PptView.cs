@@ -1,9 +1,9 @@
-﻿using System.Drawing.Imaging;
+﻿using System.Runtime.InteropServices;
+using System.Drawing.Imaging;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System;
-using System.Runtime.InteropServices;
 
 public class PptView : IDisposable
 {
@@ -38,6 +38,22 @@ public class PptView : IDisposable
     /// </summary>
     public IntPtr RenderWindowHwnd { get; private set; }
 
+    /// <summary>
+    /// Pixel holder for the last time you called Render
+    /// </summary>
+    private byte[] lastRenderedPixels;
+
+    /// <summary>
+    /// Called when this instance is disposed.
+    /// NOTE: Can be called from a different thread!
+    /// </summary>
+    public Action OnDispose;
+
+    /// <summary>
+    /// Opens pptview.exe to render a slide show
+    /// </summary>
+    /// <param name="presentation_path">path to .ppt or .pptx slideshow</param>
+    /// <param name="start_slide">starting slide opened in pptview, if exceeds max slide count, it opens from the beginning</param>
     public PptView(string presentation_path, uint start_slide = 1)
     {
         if (!File.Exists(presentation_path))
@@ -50,17 +66,20 @@ public class PptView : IDisposable
             throw new InvalidOperationException("binary path does not exist.");
 
         PresentationPath = presentation_path;
+        lastRenderedPixels = new byte[0];
 
         RendererProcess = new Process
         {
             StartInfo = new ProcessStartInfo
             {
                 UseShellExecute = false,
-                Arguments = string.Format("/FSN{0} \"{1}\"", start_slide, presentation_path),
+                Arguments = string.Format("/F /S /N{0} \"{1}\"", start_slide, presentation_path),
                 FileName = BinaryPath
             },
             EnableRaisingEvents = true
         };
+
+        RendererProcess.Exited += (sender, ev) => { Dispose(); };
 
         RendererProcess.Start();
         RendererProcess.WaitForInputIdle();
@@ -68,24 +87,42 @@ public class PptView : IDisposable
         Disposed = false;
     }
 
+    /// <summary>
+    /// Returns the current slide number or 0 on error
+    /// </summary>
     public uint SlideNumber
     {
         get
         {
+            if (Disposed)
+                return 0;
+
             int[] offsets = { 0x004F8434, 0x24, 0x40, 0x10, 0xC, 0xD4 };
             return (uint)X86MultiPointerReader.Resolve(RendererProcess, offsets).ToInt32();
         }
     }
 
+    /// <summary>
+    /// Steps the presentation forward (similar to right arrow key in MS PowerPoint)
+    /// </summary>
     public void NextStep()
     {
+        if (Disposed)
+            return;
+
         ActivateWindow();
         // 1775 is the wParam sniffed with Spy++
         User32.SendMessage(RenderWindowHwnd, User32.WindowMessages.WM_COMMAND, (IntPtr)1775, IntPtr.Zero);
     }
 
+    /// <summary>
+    /// Steps the presentation backward (similar to left arrow key in MS PowerPoint)
+    /// </summary>
     public void PreviousStep()
     {
+        if (Disposed)
+            return;
+
         ActivateWindow();
         // 1774 is the wParam sniffed with Spy++
         User32.SendMessage(RenderWindowHwnd, User32.WindowMessages.WM_COMMAND, (IntPtr)1774, IntPtr.Zero);
@@ -93,21 +130,33 @@ public class PptView : IDisposable
 
     public void ActivateWindow()
     {
+        if (Disposed)
+            return;
+
         if (User32.GetForegroundWindow() !=
             RenderWindowHwnd)
         {
             User32.SwitchToThisWindow(RenderWindowHwnd, true);
             User32.SetForegroundWindow(RenderWindowHwnd);
-            User32.SetWindowPos(
+
+            // NOTE: the following is taken from Phoenix' code
+            // after calling it, the window will never leave
+            // foreground. Call it only if the above are not working.
+            /*User32.SetWindowPos(
                 RenderWindowHwnd,
                 User32.HWND_TOPMOST,
                 0, 0, 0, 0,
                 User32.SetWindowPosFlags.SWP_NOSIZE |
                 User32.SetWindowPosFlags.SWP_NOMOVE |
-                User32.SetWindowPosFlags.SWP_SHOWWINDOW);
+                User32.SetWindowPosFlags.SWP_SHOWWINDOW);*/
         }
     }
 
+    /// <summary>
+    /// Attempts to obtain window handle of pptview.exe in its full screen mode
+    /// Process.MainWindowHandle won't work when in full screen mode
+    /// </summary>
+    /// <returns></returns>
     private bool GetRenderWindowHandle()
     {
         const string class_name = "screenClass";
@@ -135,48 +184,84 @@ public class PptView : IDisposable
         return RenderWindowHwnd != IntPtr.Zero;
     }
 
+    /// <summary>
+    /// Render the current slide of pptview.exe into a Unity Texture2D
+    /// NOTE: this method will resize the texture if it's not the current size/format
+    /// </summary>
+    /// <param name="texture">texture to receive pptview.exe's window pixels</param>
     public void Render(ref UnityEngine.Texture2D texture)
     {
-        if (RenderWindowHwnd == IntPtr.Zero &&
-            !GetRenderWindowHandle())
+        int width = 0, height = 0;
+        if (!Render(ref lastRenderedPixels, ref width, ref height))
             return;
 
-        if (!texture)
-            return;
+        if (texture.width != width ||
+            texture.height != height ||
+            texture.format != UnityEngine.TextureFormat.BGRA32)
+            texture.Resize(width, height, UnityEngine.TextureFormat.BGRA32, false);
+
+        texture.LoadRawTextureData(lastRenderedPixels);
+        texture.Apply();
+    }
+
+    /// <summary>
+    /// Render the current slide of pptview.exe into a C# byte array
+    /// Output format is Windows' ARGB (equivalent to Unity's BGRA)
+    /// NOTE: this method will resize the array if it's not the current length
+    /// </summary>
+    /// <param name="pixels">byte array to receive pptview.exe's window pixels</param>
+    /// <param name="width">width of the rendered slide</param>
+    /// <param name="height">height of the rendered slide</param>
+    /// <returns></returns>
+    public bool Render(ref byte[] pixels, ref int width, ref int height)
+    {
+        if (Disposed ||
+            (RenderWindowHwnd == IntPtr.Zero &&
+            !GetRenderWindowHandle()))
+            return false;
 
         RECT rc;
         User32.GetWindowRect(RenderWindowHwnd, out rc);
 
-        if (texture.width != rc.Width ||
-            texture.height != rc.Height ||
-            texture.format != UnityEngine.TextureFormat.BGRA32)
-            texture.Resize(rc.Width, rc.Height, UnityEngine.TextureFormat.BGRA32, false);
-
-        using (Bitmap bmp = new Bitmap(rc.Width, rc.Height, PixelFormat.Format32bppArgb))
-        using (Graphics gfx = Graphics.FromImage(bmp))
+        try
         {
-            IntPtr hdc = gfx.GetHdc();
-
-            if (User32.PrintWindow(RenderWindowHwnd, hdc, User32.PrintWindowFlags.PW_ALL))
+            using (Bitmap bmp = new Bitmap(rc.Width, rc.Height, PixelFormat.Format32bppArgb))
+            using (Graphics gfx = Graphics.FromImage(bmp))
             {
-                gfx.ReleaseHdc(hdc);
-                Rectangle rect = new Rectangle(0, 0, bmp.Width, bmp.Height);
-                BitmapData data = bmp.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+                IntPtr hdc = gfx.GetHdc();
 
-                int length = data.Stride * data.Height;
+                if (User32.PrintWindow(RenderWindowHwnd, hdc, User32.PrintWindowFlags.PW_ALL))
+                {
+                    gfx.ReleaseHdc(hdc);
+                    Rectangle rect = new Rectangle(0, 0, bmp.Width, bmp.Height);
+                    BitmapData data = bmp.LockBits(rect, ImageLockMode.ReadOnly, bmp.PixelFormat);
 
-                byte[] bytes = new byte[length];
-                Marshal.Copy(data.Scan0, bytes, 0, length);
+                    int length = data.Stride * data.Height;
 
-                bmp.UnlockBits(data);
+                    if (pixels.Length != length)
+                        Array.Resize(ref pixels, length);
 
-                texture.LoadRawTextureData(bytes);
-                texture.Apply();
+                    Marshal.Copy(data.Scan0, pixels, 0, length);
+
+                    height = rc.Height;
+                    width = rc.Width;
+
+                    bmp.UnlockBits(data);
+                    return true;
+                }
+                else
+                {
+                    gfx.ReleaseHdc(hdc);
+                    return false;
+                }
             }
-            else
-            {
-                gfx.ReleaseHdc(hdc);
-            }
+        }
+        catch(ArgumentException)
+        {
+            // this can happen if Disposed is
+            // called while render is in process
+
+            return false;
         }
     }
 
@@ -185,18 +270,28 @@ public class PptView : IDisposable
 
     protected virtual void Dispose(bool disposing)
     {
-        if (!Disposed)
+        lock(this)
         {
-            if (disposing)
+            if (!Disposed)
             {
-                if (RendererProcess != null)
+                Disposed = true;
+
+                if (disposing)
                 {
-                    RendererProcess.CloseMainWindow();
-                    RendererProcess.Dispose();
+                    if (RendererProcess != null)
+                    {
+                        RendererProcess.Refresh();
+
+                        if (!RendererProcess.HasExited)
+                            RendererProcess.CloseMainWindow();
+
+                        RendererProcess.Dispose();
+                    }
+
+                    if (OnDispose != null)
+                        OnDispose.Invoke();
                 }
             }
-
-            Disposed = true;
         }
     }
 
