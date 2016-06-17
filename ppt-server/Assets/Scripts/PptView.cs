@@ -117,8 +117,9 @@ public class PptView : IDisposable
         User32.GetWindowRect(RenderWindowHwnd, out rc);
 
         if (texture.width != rc.Width ||
-            texture.height != rc.Height)
-            texture.Resize(rc.Width, rc.Height, UnityEngine.TextureFormat.ARGB32, false);
+            texture.height != rc.Height ||
+            texture.format != UnityEngine.TextureFormat.BGRA32)
+            texture.Resize(rc.Width, rc.Height, UnityEngine.TextureFormat.BGRA32, false);
 
         using (Bitmap bmp = new Bitmap(rc.Width, rc.Height, PixelFormat.Format32bppArgb))
         using (Graphics gfx = Graphics.FromImage(bmp))
