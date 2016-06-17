@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using Helios;
+using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -10,8 +11,8 @@ public class BasicRender : MonoBehaviour
 
 	void Start ()
     {
-        string path = Path.Combine(Helios.PptView.RootPath, "test.pptx");
-        pptView = new Helios.PptView(path);
+        string path = Path.Combine(PptView.RootPath, "test.pptx");
+        pptView = new PptView(path);
 
         pptTexture = new Texture2D(Screen.width, Screen.height, TextureFormat.ARGB32, false);
         pptTexHost.texture = pptTexture;
