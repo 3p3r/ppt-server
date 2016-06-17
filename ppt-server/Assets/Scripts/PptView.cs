@@ -186,7 +186,7 @@ public class PptView : IDisposable
 
     /// <summary>
     /// Render the current slide of pptview.exe into a Unity Texture2D
-    /// NOTE: this method will resize the texture if it's not the current size/format
+    /// NOTE: this method will resize the texture if it's not the correct size/format
     /// </summary>
     /// <param name="texture">texture to receive pptview.exe's window pixels</param>
     public void Render(ref UnityEngine.Texture2D texture)
@@ -207,7 +207,7 @@ public class PptView : IDisposable
     /// <summary>
     /// Render the current slide of pptview.exe into a C# byte array
     /// Output format is Windows' ARGB (equivalent to Unity's BGRA)
-    /// NOTE: this method will resize the array if it's not the current length
+    /// NOTE: this method will resize the array if it's not the correct length
     /// </summary>
     /// <param name="pixels">byte array to receive pptview.exe's window pixels</param>
     /// <param name="width">width of the rendered slide</param>
