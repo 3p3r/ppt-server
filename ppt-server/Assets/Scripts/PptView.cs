@@ -221,7 +221,8 @@ public class PptView : IDisposable
             return false;
 
         RECT rc;
-        User32.GetWindowRect(RenderWindowHwnd, out rc);
+        if (!User32.GetWindowRect(RenderWindowHwnd, out rc))
+            return false;
 
         try
         {
