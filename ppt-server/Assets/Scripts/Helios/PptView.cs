@@ -202,6 +202,10 @@
                 texture.format != UnityEngine.TextureFormat.BGRA32)
                 texture.Resize(width, height, UnityEngine.TextureFormat.BGRA32, false);
 
+            // NOTE: this method is ONLY for debugging purposes. If you actually
+            // need to render to a Texture2D faster you should use the new shiny
+            // LoadRawTextureData(IntPtr data, int size) overload!
+
             texture.LoadRawTextureData(lastRenderedPixels);
             texture.Apply();
         }
