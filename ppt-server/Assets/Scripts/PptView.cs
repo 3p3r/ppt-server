@@ -137,10 +137,10 @@ public class PptView : IDisposable
                 byte[] bytes = new byte[length];
                 Marshal.Copy(data.Scan0, bytes, 0, length);
 
+                bmp.UnlockBits(data);
+
                 texture.LoadRawTextureData(bytes);
                 texture.Apply();
-
-                bmp.UnlockBits(data);
             }
             else
             {
