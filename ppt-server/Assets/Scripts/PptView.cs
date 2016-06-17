@@ -72,7 +72,7 @@ public class PptView : IDisposable
     {
         get
         {
-            int[] offsets = { 0x004FBADC, 0x730, 0x730, 0x7D0, 0x6E8, 0x218 };
+            int[] offsets = { 0x004F8204, 0, 0xE8, 0x84, 0, 0xD4 };
             return (uint)X86MultiPointerReader.Resolve(RendererProcess, offsets).ToInt32();
         }
     }
