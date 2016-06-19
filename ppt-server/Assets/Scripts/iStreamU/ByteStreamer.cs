@@ -1,6 +1,7 @@
 ﻿namespace iStreamU
 {
     using System;
+    using System.Net;
     using System.Runtime.InteropServices;
 
     public sealed class ByteStreamer : IDisposable
@@ -8,16 +9,6 @@
         private GCHandle        m_NeedDataCallbackHandle;
         private IntPtr          m_Pipeline  = IntPtr.Zero;
         private IntPtr          m_AppSrc    = IntPtr.Zero;
-
-        /// <summary>
-        /// Host address string passed to constructor
-        /// </summary>
-        public readonly string  HostAddress;
-
-        /// <summary>
-        /// Host port number passed to constructor
-        /// </summary>
-        public readonly short   HostPort;
 
         /// <summary>
         /// Flag indicating if AppSrc is starving for data
@@ -30,17 +21,28 @@
         public bool             Disposed { get; private set; }
 
         /// <summary>
+        /// Network options. Pass this to ByteStreamer constructor to configure
+        /// its network sink. If "TransportType.All" is passed, both a UDP and
+        /// TCP sink will be created.
+        /// </summary>
+        public class NetworkOptions
+        {
+            public TransportType    StreamType  = TransportType.Udp;
+            public string           Address     = IPAddress.Loopback.ToString();
+            public short            Port        = 10000;
+        }
+
+        /// <summary>
         /// Attempts to construct a GStreamer pipeline that streams an ARGB C# byte array
         /// encoded with JPEG and multiplexed into HTTP multi part frames.
         /// THROWS if it cannot construct the pipeline.
-        /// Receiver can be:
-        /// gst-launch-1.0 tcpclientsrc host=<host> port=<port> ! decodebin ! autovideosink
+        /// Receiver can be (in case of UDP transport):
+        /// gst-launch-1.0 udpsrc address=<host> port=<port> ! decodebin ! autovideosink
         /// </summary>
         /// <param name="width">width of the input image buffer</param>
         /// <param name="height">height of the input image buffer</param>
-        /// <param name="host">host address of the outgoing stream TCP packets (default: 127.0.0.1)</param>
-        /// <param name="port">host port of the outgoing stream TCP packets (default: 10000)</param>
-        public ByteStreamer(int width, int height, string host = "127.0.0.1", short port = 10000)
+        /// <param name="netopts">network options to launch the ByteStreamer instance with</param>
+        public ByteStreamer(int width, int height, NetworkOptions netopts = null)
         {
             Disposed = false;
 
@@ -48,16 +50,33 @@
                 !GStreamer.Initialize())
                 throw new ExternalException("Unable to initialize GStreamer.");
 
+            if (netopts == null)
+                netopts = new NetworkOptions();
+
             string appsrc_name = "AppSrc";
-            string appsrc_caps = string.Format("video/x-raw,format=ARGB,width={0},height={1}", width, height);
+            string appsrc_sink = string.Empty;
+            string appsrc_opts = "is-live=true do-timestamp=true";
+            string appsrc_caps = string.Format("video/x-raw,format=ARGB,framerate=0/1,width={0},height={1}", width, height);
+
+            if (netopts.StreamType == TransportType.Udp)
+                appsrc_sink = string.Format("udpsink host={0} port={1}",
+                    netopts.Address, netopts.Port);
+            else
+            if (netopts.StreamType == TransportType.Tcp)
+                appsrc_sink = string.Format("tcpserversink host={0} port={1}",
+                    netopts.Address, netopts.Port);
+            else
+            if (netopts.StreamType == TransportType.All)
+                appsrc_sink = string.Format("tee name=t ! queue ! tcpserversink host={0} port={1} t. ! queue ! udpsink host={0} port={1}",
+                    netopts.Address, netopts.Port);
 
             string[] pipeline_elements = new string[]
             {
-                string.Format("appsrc name=\"{0}\" caps=\"{1}\"", appsrc_name, appsrc_caps),
+                string.Format("appsrc name=\"{0}\" caps=\"{1}\" {2}", appsrc_name, appsrc_caps, appsrc_opts),
                 "videoconvert",
                 "video/x-raw,format=I420",
                 "jpegenc quality=75",
-                string.Format("tcpserversink host={0} port={1}", host, port)
+                appsrc_sink
             };
 
             string pipeline_description = string.Join(" ! ", pipeline_elements);
@@ -81,9 +100,6 @@
             if (GStreamer.ElementSetState(m_Pipeline, GStreamer.State.GST_STATE_PLAYING)
                 == GStreamer.StateChangeReturn.GST_STATE_CHANGE_FAILURE)
                 throw new ExternalException("Pipeline state change failed.");
-
-            HostAddress = host;
-            HostPort = port;
         }
 
         /// <summary>
