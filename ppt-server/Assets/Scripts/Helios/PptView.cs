@@ -112,7 +112,9 @@
             if (Disposed)
                 return;
 
-            ActivateWindow();
+            User32.InvalidateWindow(RenderWindowHwnd);
+            User32.ActivateWindow(RenderWindowHwnd);
+
             // 1775 is the wParam sniffed with Spy++
             User32.SendMessage(RenderWindowHwnd, User32.WindowMessages.WM_COMMAND, (IntPtr)1775, IntPtr.Zero);
         }
@@ -125,33 +127,11 @@
             if (Disposed)
                 return;
 
-            ActivateWindow();
+            User32.InvalidateWindow(RenderWindowHwnd);
+            User32.ActivateWindow(RenderWindowHwnd);
+
             // 1774 is the wParam sniffed with Spy++
             User32.SendMessage(RenderWindowHwnd, User32.WindowMessages.WM_COMMAND, (IntPtr)1774, IntPtr.Zero);
-        }
-
-        public void ActivateWindow()
-        {
-            if (Disposed)
-                return;
-
-            if (User32.GetForegroundWindow() !=
-                RenderWindowHwnd)
-            {
-                User32.SwitchToThisWindow(RenderWindowHwnd, true);
-                User32.SetForegroundWindow(RenderWindowHwnd);
-
-                // NOTE: the following is taken from Phoenix' code
-                // after calling it, the window will never leave
-                // foreground. Call it only if the above are not working.
-                /*User32.SetWindowPos(
-                    RenderWindowHwnd,
-                    User32.HWND_TOPMOST,
-                    0, 0, 0, 0,
-                    User32.SetWindowPosFlags.SWP_NOSIZE |
-                    User32.SetWindowPosFlags.SWP_NOMOVE |
-                    User32.SetWindowPosFlags.SWP_SHOWWINDOW);*/
-            }
         }
 
         /// <summary>
@@ -232,6 +212,8 @@
 
             try
             {
+                User32.InvalidateWindow(RenderWindowHwnd);
+
                 using (Bitmap bmp = new Bitmap(rc.Width, rc.Height, PixelFormat.Format32bppArgb))
                 using (Graphics gfx = Graphics.FromImage(bmp))
                 {
