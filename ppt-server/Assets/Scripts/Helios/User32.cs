@@ -93,7 +93,7 @@
 
         /// <see cref="https://msdn.microsoft.com/en-us/library/windows/desktop/ms633545(v=vs.85).aspx"/>
         [Flags]
-        public enum SetWindowPosFlags : uint
+        enum SetWindowPosFlags : uint
         {
             SWP_NOMOVE = 0x0002,
             SWP_NOSIZE = 0x0001,
@@ -103,22 +103,50 @@
         /// <see cref="https://msdn.microsoft.com/en-us/library/windows/desktop/ms633545(v=vs.85).aspx"/>
         [DllImport(DllName, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, SetWindowPosFlags uFlags);
+        static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, SetWindowPosFlags uFlags);
 
         /// <see cref="https://msdn.microsoft.com/en-us/library/windows/desktop/ms633545(v=vs.85).aspx"/>
-        public static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+        static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
 
         /// <see cref="https://msdn.microsoft.com/en-us/library/windows/desktop/ms633539(v=vs.85).aspx"/>
         [DllImport(DllName)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool SetForegroundWindow(System.IntPtr hWnd);
+        static extern bool SetForegroundWindow(System.IntPtr hWnd);
 
         /// <see cref="https://msdn.microsoft.com/en-us/library/windows/desktop/ms633505(v=vs.85).aspx"/>
         [DllImport(DllName)]
-        public static extern System.IntPtr GetForegroundWindow();
+        static extern System.IntPtr GetForegroundWindow();
 
         /// <see cref="https://msdn.microsoft.com/en-us/library/windows/desktop/ms633553(v=vs.85).aspx"/>
         [DllImport(DllName, SetLastError = true)]
-        public static extern void SwitchToThisWindow(IntPtr hWnd, bool fAltTab);
+        static extern void SwitchToThisWindow(IntPtr hWnd, bool fAltTab);
+
+        public static void ActivateWindow(IntPtr window)
+        {
+            if (GetForegroundWindow() != window)
+            {
+                SwitchToThisWindow(window, true);
+                SetForegroundWindow(window);
+
+                // NOTE: the following is taken from Phoenix' code
+                // after calling it, the window will never leave
+                // foreground. Call it only if the above are not working.
+                /*User32.SetWindowPos(
+                    RenderWindowHwnd,
+                    User32.HWND_TOPMOST,
+                    0, 0, 0, 0,
+                    User32.SetWindowPosFlags.SWP_NOSIZE |
+                    User32.SetWindowPosFlags.SWP_NOMOVE |
+                    User32.SetWindowPosFlags.SWP_SHOWWINDOW);*/
+            }
+        }
+
+        [DllImport(DllName)]
+        static extern bool RedrawWindow(IntPtr hWnd, IntPtr lprcUpdate, IntPtr hrgnUpdate, uint flags);
+
+        public static void InvalidateWindow(IntPtr window)
+        {
+            RedrawWindow(window, IntPtr.Zero, IntPtr.Zero, 0x0400/*RDW_FRAME*/ | 0x0100/*RDW_UPDATENOW*/ | 0x0001/*RDW_INVALIDATE*/);
+        }
     }
 }
