@@ -26,7 +26,16 @@
 
         public PptStreamer(LaunchOptions opts)
         {
-            byteStreamer = new ByteStreamer(opts.StreamWidth, opts.StreamHeight, opts.StreamAddress, opts.StreamPort);
+            byteStreamer = new ByteStreamer(
+                opts.StreamWidth,
+                opts.StreamHeight,
+                new ByteStreamer.NetworkOptions
+            {
+                StreamType = System.Net.TransportType.Udp,
+                Address = opts.StreamAddress,
+                Port = opts.StreamPort
+            });
+
             slidePixels = new byte[opts.StreamWidth * opts.StreamHeight * 4];
             pptView = new PptView(opts.SlideShowPath, opts.StartSlide);
             disposed = false;
