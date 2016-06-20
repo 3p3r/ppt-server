@@ -11,8 +11,10 @@ public class BasicRender : MonoBehaviour
 
 	void Start ()
     {
-        string path = Path.Combine(PptView.RootPath, "test.pptx");
-        pptView = new PptView(path);
+        string root = Path.Combine(Application.streamingAssetsPath, "pptview");
+        string path = Path.Combine(root, "test.pptx");
+
+        pptView = new PptView(root, path);
 
         pptTexture = new Texture2D(Screen.width, Screen.height, TextureFormat.ARGB32, false);
         pptTexHost.texture = pptTexture;

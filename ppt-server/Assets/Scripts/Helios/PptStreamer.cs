@@ -6,16 +6,16 @@
 
     public sealed class PptStreamer : IDisposable
     {
-        private bool            quit;
-        private bool            disposed;
-        private byte[]          slidePixels;
-        private PptView         pptView;
-        private ByteStreamer    byteStreamer;
-        private Thread          streamThread;
-        private TimeSpan        streamDelay;
+        public bool                     Quit { get; private set; }
+        public bool                     Disposed { get; private set; }
+        private byte[]                  SlidePixels;
+        private readonly Thread         StreamThread;
+        private readonly TimeSpan       StreamDelay;
+        private readonly LaunchOptions  LaunchOpts;
 
         public struct LaunchOptions
         {
+            public string   RootPath;
             public string   SlideShowPath;
             public string   StreamAddress;
             public short    StreamPort;
@@ -26,56 +26,62 @@
 
         public PptStreamer(LaunchOptions opts)
         {
-            byteStreamer = new ByteStreamer(
-                opts.StreamWidth,
-                opts.StreamHeight,
-                new ByteStreamer.NetworkOptions
-            {
-                StreamType = System.Net.TransportType.Udp,
-                Address = opts.StreamAddress,
-                Port = opts.StreamPort
-            });
+            System.Diagnostics.Debug.WriteLine("PptStreamer");
+            LaunchOpts = opts;
 
-            slidePixels = new byte[opts.StreamWidth * opts.StreamHeight * 4];
-            pptView = new PptView(opts.SlideShowPath, opts.StartSlide);
-            disposed = false;
-            quit = false;
+            Disposed = false;
+            Quit = false;
 
-            streamDelay = TimeSpan.FromMilliseconds(50);
-            streamThread = new Thread(new ThreadStart(StreamRoutine));
-            streamThread.Start();
+            StreamDelay = TimeSpan.FromMilliseconds(50);
+            StreamThread = new Thread(new ThreadStart(StreamRoutine));
+            StreamThread.Start();
         }
 
         void StreamRoutine()
         {
-            while(!quit)
+            try
             {
-                int width = 0, height = 0;
-                if (pptView.Render(ref slidePixels, ref width, ref height) &&
-                    byteStreamer.NeedData)
-                    byteStreamer.PushBuffer(slidePixels);
-
-                Thread.Sleep(streamDelay);
+                System.Diagnostics.Debug.WriteLine("StreamRoutine");
+                using (var byteStreamer = new ByteStreamer(
+                    LaunchOpts.StreamWidth,
+                    LaunchOpts.StreamHeight))
+                using (var pptView = new PptView(
+                    LaunchOpts.RootPath,
+                    LaunchOpts.SlideShowPath,
+                    LaunchOpts.StartSlide))
+                {
+                    System.Diagnostics.Debug.WriteLine("Loop");
+                    while (!Quit)
+                    {
+                        int width = 0, height = 0;
+                        if (pptView.Render(ref SlidePixels, ref width, ref height) &&
+                            byteStreamer.NeedData)
+                            byteStreamer.PushBuffer(SlidePixels);
+                        System.Diagnostics.Debug.WriteLine("Render");
+                        Thread.Sleep(StreamDelay);
+                    }
+                }
+            }
+            catch(Exception)
+            {
+                System.Diagnostics.Debug.WriteLine("done");
+                Quit = true;
+                return;
             }
         }
 
         #region IDisposable Support
         void Dispose(bool disposing)
         {
-            if (!disposed)
+            if (!Disposed)
             {
                 if (disposing)
                 {
-                    quit = true;
-                    streamThread.Join(streamDelay);
-
-                    byteStreamer.Dispose();
-                    pptView.Dispose();
+                    Quit = true;
+                    StreamThread.Join(StreamDelay);
                 }
 
-                streamThread = null;
-                pptView = null;
-                disposed = true;
+                Disposed = true;
             }
         }
 

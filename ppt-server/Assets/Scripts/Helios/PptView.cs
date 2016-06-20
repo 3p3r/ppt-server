@@ -13,15 +13,12 @@
         /// <summary>
         /// Returns path to the root directory of pptview.exe
         /// </summary>
-        public static string RootPath
-        {
-            get { return Path.Combine(UnityEngine.Application.streamingAssetsPath, "pptview"); }
-        }
+        public readonly string RootPath;
 
         /// <summary>
         /// Returns path to the pptview.exe executable, located in RootPath
         /// </summary>
-        public static string BinaryPath
+        public string BinaryPath
         {
             get { return Path.Combine(RootPath, "PPTVIEW.EXE"); }
         }
@@ -73,13 +70,14 @@
         /// </summary>
         /// <param name="presentation_path">path to .ppt or .pptx slideshow</param>
         /// <param name="start_slide">starting slide opened in pptview, if exceeds max slide count, it opens from the beginning</param>
-        public PptView(string presentation_path, uint start_slide = 1)
+        public PptView(string root_path, string presentation_path, uint start_slide = 1)
         {
             if (!File.Exists(presentation_path))
                 throw new ArgumentException("presentation file does not exist.");
 
-            if (!Directory.Exists(RootPath))
+            if (!Directory.Exists(root_path))
                 throw new InvalidOperationException("root path does not exist.");
+            else RootPath = root_path;
 
             if (!File.Exists(BinaryPath))
                 throw new InvalidOperationException("binary path does not exist.");
@@ -158,7 +156,7 @@
         /// <returns></returns>
         private bool GetRenderWindowHandle()
         {
-            const string class_name = "screenClass";
+            string class_name = "screenClass";
 
             RenderWindowHwnd = IntPtr.Zero;
 
@@ -243,6 +241,9 @@
                         BitmapData data = bmp.LockBits(rect, ImageLockMode.ReadOnly, bmp.PixelFormat);
 
                         int length = data.Stride * data.Height;
+
+                        if (pixels == null)
+                            pixels = new byte[0];
 
                         if (pixels.Length != length)
                             Array.Resize(ref pixels, length);
