@@ -4,6 +4,7 @@
     using System.IO;
     using System.Drawing;
     using System.Diagnostics;
+    using System.Windows.Forms;
     using System.Drawing.Imaging;
     using System.Runtime.InteropServices;
 
@@ -44,6 +45,22 @@
         /// Pixel holder for the last time you called Render
         /// </summary>
         private byte[] lastRenderedPixels;
+
+        /// <summary>
+        /// Returns primary screen width, what most likely be PPT's width
+        /// </summary>
+        public static int ScreenWidth
+        {
+            get { return Screen.PrimaryScreen.Bounds.Width; }
+        }
+
+        /// <summary>
+        /// Returns primary screen height, what most likely be PPT's height
+        /// </summary>
+        public static int ScreenHeight
+        {
+            get { return Screen.PrimaryScreen.Bounds.Height; }
+        }
 
         /// <summary>
         /// Called when this instance is disposed.
