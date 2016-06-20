@@ -1,5 +1,6 @@
 ﻿using Helios;
 using System.IO;
+using System.Net;
 using UnityEngine;
 
 public class BasicStream : MonoBehaviour
@@ -11,11 +12,11 @@ public class BasicStream : MonoBehaviour
         pptStreamer = new PptStreamer(new PptStreamer.LaunchOptions
         {
             SlideShowPath = Path.Combine(PptView.RootPath, "test.pptx"),
-            StartSlide = 1,
-            StreamAddress = "127.0.0.1",
+            StreamAddress = IPAddress.Loopback.ToString(),
+            StreamHeight = PptView.ScreenHeight,
+            StreamWidth = PptView.ScreenWidth,
             StreamPort = 10000,
-            StreamWidth = 3840,
-            StreamHeight = 2160
+            StartSlide = 1
         });
 	}
 	
